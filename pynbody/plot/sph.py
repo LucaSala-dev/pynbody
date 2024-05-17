@@ -296,8 +296,8 @@ def velocity_image(sim, qty='rho', vector_qty='vel', width="10 kpc", mode='quive
 
 def volume(sim, qty='rho', width=None, resolution=200,
            color=(1.0,1.0,1.0),vmin=None,vmax=None,
-           dynamic_range=4.0,log=True,
-           create_figure=True):
+           dynamic_range=4.0,log=True, cmap="plasma",
+           create_figure=True, pass_grid=None, savename=None):
     """Create a volume rendering of the given simulation using mayavi.
 
     **Keyword arguments:**
@@ -326,16 +326,20 @@ def volume(sim, qty='rho', width=None, resolution=200,
     import mayavi
     from mayavi import mlab
     from tvtk.util.ctf import ColorTransferFunction, PiecewiseFunction
-
+    from mayavi.core.lut_manager import LUTManager 
+    from tvtk.util import ctf
 
 
     if create_figure:
         fig = mlab.figure(size=(500,500),bgcolor=(0,0,0))
 
-    grid_data = sph.to_3d_grid(sim,qty=qty,nx=resolution,
+    if pass_grid is not None:
+        grid_data = pass_grid
+    else:
+        grid_data = sph.to_3d_grid(sim,qty=qty,nx=resolution,
                                x2=None if width is None else width/2)
-
-
+        if savename is not None:
+            np.save(savename, grid_data)
 
     if log:
         grid_data = np.log10(grid_data)
@@ -366,20 +370,24 @@ def volume(sim, qty='rho', width=None, resolution=200,
 
     if color is None:
         ctf = ColorTransferFunction()
-        ctf.add_rgb_point(vmin,107./255,124./255,132./255)
-        ctf.add_rgb_point(vmin+(vmax-vmin)*0.8,200./255,178./255,164./255)
-        ctf.add_rgb_point(vmin+(vmax-vmin)*0.9,1.0,210./255,149./255)
-        ctf.add_rgb_point(vmax,1.0,222./255,141./255)
-
+        n_interp = 100
+        interp_points = np.linspace(0,1,n_interp)
+        color_table = p.cm.get_cmap(cmap, n_interp)
+        rgb_t = color_table(np.arange(0,color_table.N)).transpose()
+        #rgb_t = (color_table.colors[:,0:3]).transpose()
+        LUT = np.vstack((interp_points,rgb_t[0],rgb_t[1],rgb_t[2])).transpose()
+        for el in LUT:
+            ctf.add_rgb_point(vmin+(vmax-vmin)*el[0],el[1],el[2],el[3])       
         V._volume_property.set_color(ctf)
         V._ctf = ctf
         V.update_ctf = True
-
+        V.module_manager.scalar_lut_manager.lut_mode = cmap
+        
     V._otf = otf
     V._volume_property.set_scalar_opacity(otf)
 
 
-    return V
+    return V,sf
 
 
 def _units_imply_projection(sim, qty, units):
