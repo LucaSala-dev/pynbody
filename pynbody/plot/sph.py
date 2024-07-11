@@ -360,21 +360,21 @@ def volume(sim, qty='rho', width=None, resolution=200,
     otf.add_point(vmin,0.0)
     otf.add_point(vmax,1.0)
 
-    sf = mayavi.tools.pipeline.scalar_field(grid_data)
+    x = np.linspace(-width/2,width/2,resolution)
+    y = np.linspace(-width/2,width/2,resolution)
+    z = np.linspace(-width/2,width/2,resolution)
+    X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
+    sf = mayavi.tools.pipeline.scalar_field(X, Y, Z, grid_data)
     V = mlab.pipeline.volume(sf,color=color,vmin=vmin,vmax=vmax)
-
-
-
 
     V.trait_get('volume_mapper')['volume_mapper'].blend_mode = 'maximum_intensity'
 
     if color is None:
         ctf = ColorTransferFunction()
-        n_interp = 100
+        color_table = matplotlib.colormaps[cmap]
+        n_interp = color_table.N
         interp_points = np.linspace(0,1,n_interp)
-        color_table = p.cm.get_cmap(cmap, n_interp)
         rgb_t = color_table(np.arange(0,color_table.N)).transpose()
-        #rgb_t = (color_table.colors[:,0:3]).transpose()
         LUT = np.vstack((interp_points,rgb_t[0],rgb_t[1],rgb_t[2])).transpose()
         for el in LUT:
             ctf.add_rgb_point(vmin+(vmax-vmin)*el[0],el[1],el[2],el[3])       
